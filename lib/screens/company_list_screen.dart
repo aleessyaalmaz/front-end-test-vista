@@ -68,10 +68,11 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
 
     final q = _query.toLowerCase();
     final filtered = p.companies
-        .where((c) =>
-            c.name.toLowerCase().contains(q) ||
-            c.registrationNumber.toLowerCase().contains(q))
-        .toList();
+      .where((c) =>
+          c.name.toLowerCase().contains(q) ||
+          c.registrationNumber.toLowerCase().contains(q))
+      .toList()
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final serviceCount =
         p.companies.fold<int>(0, (sum, c) => sum + c.services.length);
 
@@ -219,7 +220,11 @@ class _CompanyCard extends StatelessWidget {
                     ),
                   ),
                 ]
-              : company.services.map((s) => _ServiceRow(service: s)).toList(),
+              : (List<Service>.of(company.services)
+                  ..sort((a, b) =>
+                      a.name.toLowerCase().compareTo(b.name.toLowerCase())))
+                .map((s) => _ServiceRow(service: s))
+                .toList(),
         ),
       ),
     );
