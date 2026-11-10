@@ -6,6 +6,16 @@ import '../widgets.dart';
 import 'create_company_screen.dart';
 import 'create_service_screen.dart';
 
+enum SortOption {
+  nameAsc('A to Z'),
+  nameDesc('Z to A'),
+  newest('Newest first'),
+  oldest('Oldest first');
+
+  final String label;
+  const SortOption(this.label);
+}
+
 class CompanyListScreen extends StatefulWidget {
   const CompanyListScreen({super.key});
 
@@ -16,12 +26,22 @@ class CompanyListScreen extends StatefulWidget {
 class _CompanyListScreenState extends State<CompanyListScreen> {
   final _search = TextEditingController();
   String _query = '';
+  SortOption _sort = SortOption.nameAsc;
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
   }
+
+  int _compare(Company a, Company b) => switch (_sort) {
+        SortOption.nameAsc =>
+          a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        SortOption.nameDesc =>
+          b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+        SortOption.newest => b.id.compareTo(a.id),
+        SortOption.oldest => a.id.compareTo(b.id),
+      };
 
   void _open(Widget screen) =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -33,6 +53,18 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
       appBar: AppBar(
         title: const Text('Companies'),
         actions: [
+          PopupMenuButton<SortOption>(
+            tooltip: 'Sort',
+            icon: const Icon(Icons.sort),
+            onSelected: (v) => setState(() => _sort = v),
+            itemBuilder: (_) => SortOption.values
+                .map((o) => CheckedPopupMenuItem(
+                      value: o,
+                      checked: o == _sort,
+                      child: Text(o.label),
+                    ))
+                .toList(),
+          ),
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
@@ -68,11 +100,11 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
 
     final q = _query.toLowerCase();
     final filtered = p.companies
-      .where((c) =>
-          c.name.toLowerCase().contains(q) ||
-          c.registrationNumber.toLowerCase().contains(q))
-      .toList()
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        .where((c) =>
+            c.name.toLowerCase().contains(q) ||
+            c.registrationNumber.toLowerCase().contains(q))
+        .toList()
+      ..sort(_compare);
     final serviceCount =
         p.companies.fold<int>(0, (sum, c) => sum + c.services.length);
 
@@ -82,7 +114,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
         const SizedBox(height: 4),
         Text(
           '${plural(p.companies.length, 'company', 'companies')} · '
-          '${plural(serviceCount, 'service')}',
+          '${plural(serviceCount, 'service')} · ${_sort.label}',
           style: Theme.of(context)
               .textTheme
               .bodyMedium
@@ -176,6 +208,9 @@ class _CompanyCard extends StatelessWidget {
     final initial =
         company.name.isEmpty ? '?' : company.name[0].toUpperCase();
 
+    final services = List<Service>.of(company.services)
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
     return Card(
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -201,7 +236,9 @@ class _CompanyCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: [
-                _Pill(icon: Icons.badge_outlined, text: company.registrationNumber),
+                _Pill(
+                    icon: Icons.badge_outlined,
+                    text: company.registrationNumber),
                 _Pill(
                   icon: Icons.room_service_outlined,
                   text: plural(company.services.length, 'service'),
@@ -209,7 +246,7 @@ class _CompanyCard extends StatelessWidget {
               ],
             ),
           ),
-          children: company.services.isEmpty
+          children: services.isEmpty
               ? [
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -220,11 +257,7 @@ class _CompanyCard extends StatelessWidget {
                     ),
                   ),
                 ]
-              : (List<Service>.of(company.services)
-                  ..sort((a, b) =>
-                      a.name.toLowerCase().compareTo(b.name.toLowerCase())))
-                .map((s) => _ServiceRow(service: s))
-                .toList(),
+              : services.map((s) => _ServiceRow(service: s)).toList(),
         ),
       ),
     );
