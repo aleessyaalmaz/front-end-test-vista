@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app_provider.dart';
+import '../widgets.dart';
 
 class CreateCompanyScreen extends StatefulWidget {
   const CreateCompanyScreen({super.key});
@@ -22,10 +23,10 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    final err = await context
-        .read<AppProvider>()
-        .createCompany(_name.text.trim(), _reg.text.trim());
+    final provider = context.read<AppProvider>();
+    if (provider.isLoading || !_formKey.currentState!.validate()) return;
+    final err =
+        await provider.createCompany(_name.text.trim(), _reg.text.trim());
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(err ?? 'Company created')));
@@ -34,50 +35,47 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final loading = context.watch<AppProvider>().isLoading;
-    return Scaffold(
-      appBar: AppBar(title: const Text('New Company')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(children: [
-                TextFormField(
-                  controller: _name,
-                  decoration: const InputDecoration(
-                      labelText: 'Name', border: OutlineInputBorder()),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Name is required' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _reg,
-                  decoration: const InputDecoration(
-                      labelText: 'Registration Number',
-                      border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Registration number is required'
-                      : null,
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: loading ? null : _submit,
-                    child: loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Create'),
-                  ),
-                ),
-              ]),
+    final loading = context.select<AppProvider, bool>((p) => p.isLoading);
+    return FormShell(
+      title: 'New company',
+      subtitle: 'Add a company, then attach services to it.',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _name,
+              autofocus: true,
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Company name',
+                prefixIcon: Icon(Icons.business_outlined),
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Name is required' : null,
             ),
-          ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _reg,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Registration number',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Registration number is required'
+                  : null,
+            ),
+            const SizedBox(height: 24),
+            SubmitButton(
+              label: 'Create company',
+              loading: loading,
+              onPressed: _submit,
+            ),
+          ],
         ),
       ),
     );
